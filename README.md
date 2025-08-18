@@ -31,14 +31,20 @@ The app supports **multi-document ingestion** (PDF, DOCX, TXT), **Q&A with citat
 git clone https://github.com/your-username/healthcare-rag-assistant.git
 cd healthcare-rag-assistant
 
+---
+
 ### 2. Install dependencies
 
 pip install -r requirements.txt
+
+---
 
 ### 3. Set your OpenAI API key
 
 OPENAI_API_KEY = "your-openai-api-key"
 OPENAI_MODEL = "gpt-4o-mini"
+
+---
 
 ### 4. Run locally
 
