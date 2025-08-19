@@ -8,6 +8,8 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
+import chromadb
+from chromadb.config import Settings
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -56,10 +58,9 @@ if st.button("Ingest"):
     [],
     embeddings,
     persist_directory="./chroma_store",
-    client_settings=chromadb.config.Settings(
-        allow_reset=True,
-        anonymized_telemetry=False
-    )
+    client_settings = Settings(
+    persist_directory="chroma_db"
+)
 
           )
             
