@@ -57,7 +57,7 @@ if st.button("Ingest / Update Index"):
                 embeddings,
                 persist_directory="./chroma_store"
             )
-        st.success("✅ Index updated successfully!")
+        st.success("Index updated successfully!")
     else:
         st.warning("Upload at least one document before ingestion.")
 
@@ -85,7 +85,7 @@ parser = StrOutputParser()
 
 # --- Tabs (always visible)
 st.divider()
-st.markdown("### 2) Choose a mode and ask")
+st.markdown Choose a mode and ask
 
 tabs = st.tabs(["Q&A", "Summarize", "Glossary"])
 ctx_fn = make_context_fn(vs, k=top_k, use_reranker=use_reranker) if vs else None
