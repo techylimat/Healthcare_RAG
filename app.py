@@ -49,7 +49,7 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api
 
 # --- Vectorstore
 vs = None
-if st.button("Ingest / Update Index"):
+if st.button("Ingest"):
     if doc_paths:
         with st.spinner("Building vectorstore..."):
             vs = Chroma.from_documents(
@@ -85,7 +85,7 @@ parser = StrOutputParser()
 
 # --- Tabs (always visible)
 st.divider()
-st.markdown Choose a mode and ask
+st.markdown ("Choose a mode and ask")
 
 tabs = st.tabs(["Q&A", "Summarize", "Glossary"])
 ctx_fn = make_context_fn(vs, k=top_k, use_reranker=use_reranker) if vs else None
