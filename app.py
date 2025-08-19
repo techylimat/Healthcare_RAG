@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
@@ -25,7 +25,7 @@ except Exception:
 st.set_page_config(page_title="Healthcare RAG", page_icon="🩺", layout="wide")
 load_dotenv()
 
-# Secrets/keys: Streamlit Cloud → App → Settings → Secrets
+# Secrets/keys
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 if not OPENAI_API_KEY:
     st.warning("OPENAI_API_KEY not set. In Streamlit Cloud, go to App → Settings → Secrets and add it.")
@@ -33,10 +33,10 @@ if not OPENAI_API_KEY:
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 EMB_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Local folders (persist for the current app instance; cleared on redeploy)
+# Local folders (persist for current app instance; cleared on redeploy)
 DATA_DIR = Path("data"); DATA_DIR.mkdir(exist_ok=True)
 STORE_DIR = Path("store"); STORE_DIR.mkdir(exist_ok=True)
-INDEX_PATH = STORE_DIR / "faiss_index"
+CHROMA_PATH = str(STORE_DIR / "chroma_db")
 
 # Components
 embeddings = HuggingFaceEmbeddings(model_name=EMB_MODEL)
@@ -74,21 +74,21 @@ def chunk_docs(docs, size=700, overlap=120):
     )
     return splitter.split_documents(docs)
 
-# ------------ Vector store ------------
+# ------------ Vector store (Chroma) ------------
 
 def build_or_update_index(chunks):
-    if INDEX_PATH.exists():
-        vs = FAISS.load_local(str(INDEX_PATH), embeddings, allow_dangerous_deserialization=True)
+    if os.path.exists(CHROMA_PATH):
+        vs = Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
         vs.add_documents(chunks)
     else:
-        vs = FAISS.from_documents(chunks, embeddings)
-    vs.save_local(str(INDEX_PATH))
+        vs = Chroma.from_documents(chunks, embeddings, persist_directory=CHROMA_PATH)
+    vs.persist()
     return vs
 
 @st.cache_resource(show_spinner=False)
 def load_index():
-    if INDEX_PATH.exists():
-        return FAISS.load_local(str(INDEX_PATH), embeddings, allow_dangerous_deserialization=True)
+    if os.path.exists(CHROMA_PATH):
+        return Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
     return None
 
 # ------------ Retrieval helpers ------------
@@ -198,16 +198,14 @@ if ingest_clicked:
         with st.spinner("Loading & chunking documents..."):
             docs = load_docs(files)
             chunks = chunk_docs(docs)
-        with st.spinner("Building FAISS index (persisting)..."):
+        with st.spinner("Building Chroma index (persisting)..."):
             vs = build_or_update_index(chunks)
         st.success("Index ready & saved.")
 
 if clear_clicked:
-    if INDEX_PATH.exists():
-        for p in INDEX_PATH.glob("**/*"):
-            p.unlink()
-        INDEX_PATH.rmdir()
-        st.success("Cleared FAISS index.")
+    if os.path.exists(CHROMA_PATH):
+        import shutil; shutil.rmtree(CHROMA_PATH)
+        st.success("Cleared Chroma index.")
     else:
         st.info("No index found to clear.")
 
