@@ -60,7 +60,8 @@ if st.button("Ingest"):
         allow_reset=True,
         anonymized_telemetry=False
     )
-                
+
+          )
         st.success("Index updated successfully!")
     else:
         st.warning("Upload at least one document before ingestion.")
