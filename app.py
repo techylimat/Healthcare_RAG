@@ -53,10 +53,14 @@ if st.button("Ingest"):
     if doc_paths:
         with st.spinner("Building vectorstore..."):
             vs = Chroma.from_documents(
-                [],
-                embeddings,
-                persist_directory="./chroma_store"
-            )
+    [],
+    embeddings,
+    persist_directory="./chroma_store",
+    client_settings=chromadb.config.Settings(
+        allow_reset=True,
+        anonymized_telemetry=False
+    )
+                
         st.success("Index updated successfully!")
     else:
         st.warning("Upload at least one document before ingestion.")
