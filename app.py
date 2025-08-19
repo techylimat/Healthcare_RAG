@@ -62,7 +62,7 @@ if st.button("Ingest"):
     )
 
           )
-            )
+            
         st.success("Index updated successfully!")
     else:
         st.warning("Upload at least one document before ingestion.")
