@@ -57,10 +57,10 @@ if st.button("Ingest"):
     [],
     embeddings,
     persist_directory="./chroma_store",
-    client_settings = Settings(
-    persist_directory="chroma_db"
-)
-
+    client = chromadb.Client(Settings(
+    persist_directory=".chromadb",  # folder for persistence
+    chroma_db_impl="duckdb+parquet"
+))
           )
             
         st.success("Index updated successfully!")
