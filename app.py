@@ -60,7 +60,7 @@ if st.button("Ingest"):
     persist_directory="./chroma_store",
     client = chromadb.Client(Settings(
     chroma_db_impl="duckdb+parquet",   
-    persist_directory=".chromadb"    
+    persist_directory=".chromadb"
 ))
      )
             
