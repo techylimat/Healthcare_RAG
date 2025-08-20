@@ -3,6 +3,9 @@ langchain
 langchain-community
 langchain-openai
 chromadb[duckdb]
+duckdb
+uvicorn
+fastapi
 sentence-transformers
 pypdf
 python-docx
