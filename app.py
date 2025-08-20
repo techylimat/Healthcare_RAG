@@ -33,7 +33,7 @@ model_name = st.sidebar.selectbox("Choose model", ["gpt-4o-mini", "gpt-4o", "gpt
 top_k = st.sidebar.slider("Number of chunks to retrieve", 2, 8, 4)
 use_reranker = st.sidebar.checkbox("Use reranker for context compression", value=True)
 
-# Upload documents via Streamlit
+# Upload documents 
 uploaded_files = st.file_uploader(
     "Upload PDF or DOCX files",
     type=["pdf", "docx"],
@@ -55,13 +55,7 @@ if uploaded_files:
     # Split into chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     docs = text_splitter.split_documents(docs)
-# --- File upload
-uploaded_files = st.file_uploader(
-    "1) Upload documents (PDF, DOCX, TXT)",
-    type=["pdf", "docx", "txt", "md"],
-    accept_multiple_files=True,
-    help="Drop multiple files",
-)
+
 
 # --- Save uploads
 def save_uploaded_file(uploaded_file):
