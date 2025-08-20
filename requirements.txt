@@ -3,7 +3,7 @@ streamlit
 langchain
 langchain-community
 langchain-openai
-chromadb
+chromadb[duckdb]
 sentence-transformers
 pypdf
 python-docx
