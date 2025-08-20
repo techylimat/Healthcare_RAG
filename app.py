@@ -52,8 +52,15 @@ doc_paths = [save_uploaded_file(f) for f in uploaded_files] if uploaded_files el
 
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
+vs = Chroma.from_documents(
+    docs,
+    embedding=embeddings,
+    collection_name="my_collection",
+    client=client,
+    batch_size=32  
+)
 # --- Vectorstore
 vs = None
 if st.button("Ingest"):
@@ -74,7 +81,7 @@ if st.button("Ingest"):
                 split_docs = splitter.split_documents(raw_docs)
                 docs.extend(split_docs)
 
-            # ✅ Correct ingestion (no deprecated Settings)
+            # Correct ingestion (no deprecated Settings)
             vs = Chroma.from_documents(
                 docs,
                 embeddings,
