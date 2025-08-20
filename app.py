@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from chromadb.config import Settings
+import chromadb
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -58,10 +59,9 @@ if st.button("Ingest"):
     embeddings,
     persist_directory="./chroma_store",
     client = chromadb.Client(Settings(
-    persist_directory=".chromadb",  # folder for persistence
-    chroma_db_impl="duckdb+parquet"
+    chroma_db_impl="duckdb+parquet",   
+    persist_directory=".chromadb"    
 ))
-          )
             
         st.success("Index updated successfully!")
     else:
