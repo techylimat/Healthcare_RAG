@@ -33,6 +33,19 @@ model_name = st.sidebar.selectbox("Choose model", ["gpt-4o-mini", "gpt-4o", "gpt
 top_k = st.sidebar.slider("Number of chunks to retrieve", 2, 8, 4)
 use_reranker = st.sidebar.checkbox("Use reranker for context compression", value=True)
 
+# Load documents
+pdf_loader = PyPDFLoader("sample.pdf")   # Replace with your actual PDF path
+docx_loader = Docx2txtLoader("sample.docx")  # Replace with your actual DOCX path
+
+pdf_docs = pdf_loader.load()
+docx_docs = docx_loader.load()
+
+docs = pdf_docs + docx_docs  
+
+# Split documents into chunks
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+docs = text_splitter.split_documents(docs)
+
 # --- File upload
 uploaded_files = st.file_uploader(
     "1) Upload documents (PDF, DOCX, TXT)",
