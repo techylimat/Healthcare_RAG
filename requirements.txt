@@ -1,16 +1,15 @@
-streamlit
+sstreamlit
+openai
+tiktoken
 langchain
 langchain-community
 langchain-openai
-chromadb[duckdb]
-duckdb
-uvicorn
-fastapi
+chromadb[all]
 sentence-transformers
 pypdf
 python-docx
 python-dotenv
-tiktoken
+
 
 
 
