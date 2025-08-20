@@ -8,7 +8,6 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
-import chromadb
 from chromadb.config import Settings
 
 # --- Config
