@@ -62,6 +62,7 @@ if st.button("Ingest"):
     chroma_db_impl="duckdb+parquet",   
     persist_directory=".chromadb"    
 ))
+     )
             
         st.success("Index updated successfully!")
     else:
