@@ -111,8 +111,8 @@ if st.button("Ingest"):
             vs.persist()
 
     st.success("Index updated successfully!")
-    else:
-        st.warning("Upload at least one document before ingestion.")
+else:
+    st.warning("Upload at least one document before ingestion.")
 
 # --- Context retriever
 def make_context_fn(vs, k, use_reranker):
