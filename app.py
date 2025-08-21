@@ -16,7 +16,6 @@ from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import chromadb
-from langchain_huggingface import HuggingFaceEmbeddings
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -71,7 +70,7 @@ llm = HuggingFaceHub(
 
 
 embeddings = HuggingFaceEmbeddings(
-    model_name="BAAI/bge-small-en-v1.5"
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
 
