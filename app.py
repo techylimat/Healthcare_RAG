@@ -46,12 +46,20 @@ uploaded_files = st.file_uploader(
 docs = []
 if uploaded_files:
     for file in uploaded_files:
+        # Save uploaded file to a temporary path
+        suffix = os.path.splitext(file.name)[-1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            tmp_file.write(file.getbuffer())
+            tmp_path = tmp_file.name
+
+        # Load the document
         if file.name.endswith(".pdf"):
-            loader = PyPDFLoader(file)
+            loader = PyPDFLoader(tmp_path)
         elif file.name.endswith(".docx"):
-            loader = Docx2txtLoader(file)
+            loader = Docx2txtLoader(tmp_path)
         else:
-            loader = TextLoader(file)
+            loader = TextLoader(tmp_path)
+
         docs.extend(loader.load())
 
     # Split into chunks
