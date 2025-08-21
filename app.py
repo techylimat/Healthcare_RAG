@@ -110,7 +110,7 @@ if st.button("Ingest"):
     # Save vectors to disk
 vs.persist()
 
-    st.success("Index updated successfully!")
+        st.success("Index updated successfully!")
     else:
         st.warning("Upload at least one document before ingestion.")
 
