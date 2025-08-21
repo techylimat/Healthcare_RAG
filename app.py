@@ -102,10 +102,13 @@ if st.button("Ingest"):
 
             # Correct ingestion (no deprecated Settings)
             vs = Chroma.from_documents(
-                docs,
-                embeddings,
-                persist_directory=None
-            )
+    documents=docs,
+    embedding=embeddings,
+    persist_directory="chroma_db"  
+)
+
+# Save vectors to disk
+vs.persist()
 
         st.success("Index updated successfully!")
     else:
