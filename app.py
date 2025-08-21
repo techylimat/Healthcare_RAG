@@ -77,8 +77,7 @@ if docs:
         vs = Chroma.from_documents(
     documents=docs,
     embedding=embeddings,
-    persist_directory="chroma_db",
-    batch_size=4  
+    persist_directory="chroma_db" 
 )
 
         vs.persist()
