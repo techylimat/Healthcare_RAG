@@ -104,7 +104,7 @@ if st.button("Ingest"):
             vs = Chroma.from_documents(
                 docs,
                 embeddings,
-                persist_directory="chroma_db"
+                persist_directory=None
             )
 
         st.success("Index updated successfully!")
