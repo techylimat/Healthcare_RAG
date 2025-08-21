@@ -77,8 +77,8 @@ vs = Chroma.from_documents(
     docs,
     embedding=embeddings,
     collection_name="my_collection",
-    client=client,
-    batch_size=32  
+    client=client
+
 )
 # --- Vectorstore
 vs = None
