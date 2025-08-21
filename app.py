@@ -64,7 +64,7 @@ if not hf_token:
 llm = HuggingFaceHub(
     repo_id=model_name,
     huggingfacehub_api_token=hf_token,
-    model_kwargs={"temperature": 0, "max_length": 512}
+    model_kwargs={"max_length": 512}
 )
 
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
