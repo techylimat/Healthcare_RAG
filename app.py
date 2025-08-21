@@ -12,10 +12,12 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
-import chromadb  # (kept as you had it)
+import chromadb
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from openai import OpenAI
+import time
+
 # exceptions for nicer Streamlit errors
 try:
     from openai import RateLimitError, APIConnectionError, APIStatusError
@@ -53,13 +55,11 @@ uploaded_files = st.file_uploader(
 docs = []
 if uploaded_files:
     for file in uploaded_files:
-        # Save uploaded file to a temporary path
         suffix = os.path.splitext(file.name)[-1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             tmp_file.write(file.getbuffer())
             tmp_path = tmp_file.name
 
-        # Load the document from the saved temp path
         if file.name.lower().endswith(".pdf"):
             loader = PyPDFLoader(tmp_path)
         elif file.name.lower().endswith(".docx"):
@@ -69,33 +69,50 @@ if uploaded_files:
 
         docs.extend(loader.load())
 
-    # Split into chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     docs = text_splitter.split_documents(docs)
 
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
-# use the correct kwarg for langchain_openai
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
 
-# --- Build vectorstore automatically if docs exist
+# --- Build vectorstore with batching and retry
+def embed_in_batches(docs, batch_size=10, retries=3, delay=5):
+    all_docs = []
+    for i in range(0, len(docs), batch_size):
+        batch = docs[i:i + batch_size]
+        for attempt in range(retries):
+            try:
+                batch_vs = Chroma.from_documents(
+                    documents=batch,
+                    embedding=embeddings,
+                    persist_directory="chroma_db"
+                )
+                batch_vs.persist()
+                all_docs.extend(batch)
+                break
+            except RateLimitError:
+                st.warning(f"Rate limit hit on batch {i // batch_size + 1}. Retrying in {delay} seconds...")
+                time.sleep(delay)
+                delay *= 2
+            except (APIConnectionError, APIStatusError) as e:
+                st.error(f"OpenAI API error while embedding batch {i // batch_size + 1}: {e}")
+                break
+            except Exception as e:
+                st.error(f"Unexpected error while embedding batch {i // batch_size + 1}: {e}")
+                break
+    return all_docs
+
 vs = None
 if docs:
-    with st.spinner("Building vectorstore..."):
-        try:
-            vs = Chroma.from_documents(
-                documents=docs,
-                embedding=embeddings,
-                persist_directory="chroma_db"
-            )
-            vs.persist()
-            st.success("Vectorstore built successfully!")
-        except RateLimitError:
-            st.error("OpenAI rate limit hit while embedding. Please try again shortly or reduce the number/size of files.")
-        except (APIConnectionError, APIStatusError) as e:
-            st.error(f"OpenAI API error while embedding: {e}")
-        except Exception as e:
-            st.error(f"Unexpected error while building vectorstore: {e}")
+    with st.spinner("Building vectorstore in batches..."):
+        embedded_docs = embed_in_batches(docs)
+        if embedded_docs:
+            try:
+                vs = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
+                st.success("Vectorstore built successfully!")
+            except Exception as e:
+                st.error(f"Error initializing vectorstore: {e}")
 
 # --- Context retriever
 def make_context_fn(vs, k, use_reranker):
@@ -150,3 +167,17 @@ with tabs[1]:
                 chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | sum_prompt | llm | parser)
                 summary = chain.invoke(topic)
             st.markdown("#### Summary (5 bullets)")
+            st.write(summary)
+
+# --- Glossary tab
+with tabs[2]:
+    glossary_topic = st.text_input("Topic to extract glossary from (e.g., diabetes)", key="gloss")
+    if st.button("Extract Glossary", key="gloss_btn"):
+        if vs is None:
+            st.warning("⚠️ Please upload documents first.")
+        elif glossary_topic:
+            with st.spinner("Extracting glossary..."):
+                chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | terms_prompt | llm | parser)
+                glossary = chain.invoke(glossary_topic)
+            st.markdown("#### Glossary")
+            st.write(glossary)
