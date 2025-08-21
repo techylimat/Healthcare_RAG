@@ -10,6 +10,7 @@ pypdf
 python-docx
 python-dotenv
 tiktoken
-
+langchain-huggingface
+torch
 
 
