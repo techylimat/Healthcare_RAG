@@ -15,6 +15,9 @@ from langchain.retrievers.document_compressors import LLMChainExtractor
 import chromadb
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from openai import OpenAI
+client = OpenAI()
+
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -68,7 +71,7 @@ doc_paths = [save_uploaded_file(f) for f in uploaded_files] if uploaded_files el
 
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", client=client)
 
 vs = Chroma.from_documents(
     docs,
