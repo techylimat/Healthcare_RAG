@@ -6,43 +6,25 @@ import os
 import tempfile
 import streamlit as st
 from langchain_community.vectorstores import Chroma
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.llms import HuggingFaceHub
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
-import chromadb
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from openai import OpenAI
-import time
-
-# exceptions for nicer Streamlit errors
-try:
-    from openai import RateLimitError, APIConnectionError, APIStatusError
-except Exception:
-    RateLimitError = Exception
-    APIConnectionError = Exception
-    APIStatusError = Exception
-
-client = OpenAI()
+import chromadb
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
-st.title("🩺 Healthcare RAG Assitant")
+st.title("🩺 Healthcare RAG Assistant")
 st.caption("Upload medical docs (PDF/DOCX/TXT), then ask questions, summarize, or get a glossary. Not medical advice.")
-
-# --- API key
-openai_api_key = st.secrets.get("OPENAI_API_KEY", None)
-if not openai_api_key:
-    st.warning("Please set your OPENAI_API_KEY in Streamlit secrets to continue.")
-    st.stop()
 
 # --- Sidebar
 st.sidebar.header("⚙️ Settings")
-model_name = st.sidebar.selectbox("Choose model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"])
+model_name = st.sidebar.selectbox("Choose model", ["google/flan-t5-small", "google/flan-t5-base"])
 top_k = st.sidebar.slider("Number of chunks to retrieve", 2, 8, 4)
 use_reranker = st.sidebar.checkbox("Use reranker for context compression", value=True)
 
@@ -73,48 +55,31 @@ if uploaded_files:
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
     docs = text_splitter.split_documents(docs)
 
-# --- LLM + Embeddings
-llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
+# --- HuggingFace LLM + Embeddings
+hf_token = st.secrets.get("HF_TOKEN", None)
+if not hf_token:
+    st.warning("⚠️ Please add your HuggingFace API token in Streamlit secrets.")
+    st.stop()
+
+llm = HuggingFaceHub(
+    repo_id=model_name,
+    huggingfacehub_api_token=hf_token,
+    model_kwargs={"temperature": 0, "max_length": 512}
+)
+
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-
-# --- Build vectorstore with batching and retry
-def embed_in_batches(docs, batch_size=5, retries=3, delay=5):
-    all_docs = []
-    for i in range(0, len(docs), batch_size):
-        batch = docs[i:i + batch_size]
-        for attempt in range(retries):
-            try:
-                batch_vs = Chroma.from_documents(
-                    documents=batch,
-                    embedding=embeddings,
-                    persist_directory="chroma_db"
-                )
-                batch_vs.persist()
-                all_docs.extend(batch)
-                break
-            except RateLimitError:
-                st.warning(f"Rate limit hit on batch {i // batch_size + 1}. Retrying in {delay} seconds...")
-                time.sleep(delay)
-                delay *= 2
-            except (APIConnectionError, APIStatusError) as e:
-                st.error(f"OpenAI API error while embedding batch {i // batch_size + 1}: {e}")
-                break
-            except Exception as e:
-                st.error(f"Unexpected error while embedding batch {i // batch_size + 1}: {e}")
-                break
-    return all_docs
-
+# --- Build vectorstore
 vs = None
 if docs:
-    with st.spinner("Building vectorstore in batches..."):
-        embedded_docs = embed_in_batches(docs)
-        if embedded_docs:
-            try:
-                vs = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
-                st.success("Vectorstore built successfully!")
-            except Exception as e:
-                st.error(f"Error initializing vectorstore: {e}")
+    with st.spinner("Building vectorstore..."):
+        vs = Chroma.from_documents(
+            documents=docs,
+            embedding=embeddings,
+            persist_directory="chroma_db"
+        )
+        vs.persist()
+    st.success("Vectorstore built successfully!")
 
 # --- Context retriever
 def make_context_fn(vs, k, use_reranker):
