@@ -75,10 +75,12 @@ vs = None
 if docs:
     with st.spinner("Building vectorstore..."):
         vs = Chroma.from_documents(
-            documents=docs,
-            embedding=embeddings,
-            persist_directory="chroma_db"
-        )
+    documents=docs,
+    embedding=embeddings,
+    persist_directory="chroma_db",
+    batch_size=4  
+)
+
         vs.persist()
     st.success("Vectorstore built successfully!")
 
