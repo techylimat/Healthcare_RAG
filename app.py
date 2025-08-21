@@ -68,7 +68,7 @@ if uploaded_files:
 
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", client=client)
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=openai_api_key)
 
 # --- Build vectorstore automatically if docs exist
 vs = None
