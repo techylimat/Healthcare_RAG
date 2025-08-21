@@ -7,6 +7,7 @@ import tempfile
 import streamlit as st
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -74,7 +75,8 @@ if uploaded_files:
 
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
 
 # --- Build vectorstore with batching and retry
 def embed_in_batches(docs, batch_size=5, retries=3, delay=5):
