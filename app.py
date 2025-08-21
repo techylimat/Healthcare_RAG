@@ -76,7 +76,6 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-small", client=client)
 vs = Chroma.from_documents(
     docs,
     embedding=embeddings,
-    collection_name="my_collection",
     client=client
 
 )
