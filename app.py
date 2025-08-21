@@ -16,8 +16,8 @@ import chromadb
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from openai import OpenAI
-client = OpenAI()
 
+client = OpenAI()
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -36,82 +36,43 @@ model_name = st.sidebar.selectbox("Choose model", ["gpt-4o-mini", "gpt-4o", "gpt
 top_k = st.sidebar.slider("Number of chunks to retrieve", 2, 8, 4)
 use_reranker = st.sidebar.checkbox("Use reranker for context compression", value=True)
 
-# Upload documents 
+# --- Upload & process documents
 uploaded_files = st.file_uploader(
     "Upload PDF or DOCX files",
-    type=["pdf", "docx"],
+    type=["pdf", "docx", "txt", "md"],
     accept_multiple_files=True
 )
 
 docs = []
-
 if uploaded_files:
     for file in uploaded_files:
         if file.name.endswith(".pdf"):
-            loader = PyPDFLoader(file)  # Streamlit provides a file-like object
+            loader = PyPDFLoader(file)
         elif file.name.endswith(".docx"):
             loader = Docx2txtLoader(file)
         else:
-            continue
+            loader = TextLoader(file)
         docs.extend(loader.load())
 
     # Split into chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     docs = text_splitter.split_documents(docs)
 
-
-# --- Save uploads
-def save_uploaded_file(uploaded_file):
-    suffix = os.path.splitext(uploaded_file.name)[-1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-        tmp_file.write(uploaded_file.getbuffer())
-        return tmp_file.name
-
-doc_paths = [save_uploaded_file(f) for f in uploaded_files] if uploaded_files else []
-
 # --- LLM + Embeddings
 llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small", client=client)
 
-vs = Chroma.from_documents(
-    docs,
-    embedding=embeddings,
-    client=client
-
-)
-# --- Vectorstore
+# --- Build vectorstore automatically if docs exist
 vs = None
-if st.button("Ingest"):
-    if doc_paths:
-        with st.spinner("Building vectorstore..."):
-            docs = []
-            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-
-            for path in doc_paths:
-                if path.endswith(".pdf"):
-                    loader = PyPDFLoader(path)
-                elif path.endswith(".docx"):
-                    loader = Docx2txtLoader(path)
-                else:
-                    loader = TextLoader(path)
-
-                raw_docs = loader.load()
-                split_docs = splitter.split_documents(raw_docs)
-                docs.extend(split_docs)
-
-            # Correct ingestion (no deprecated Settings)
-            vs = Chroma.from_documents(
-    documents=docs,
-    embedding=embeddings,
-    persist_directory="chroma_db"  
-)
-
-    # Save vectors to disk
-            vs.persist()
-
-    st.success("Index updated successfully!")
-else:
-    st.warning("Upload at least one document before ingestion.")
+if docs:
+    with st.spinner("Building vectorstore..."):
+        vs = Chroma.from_documents(
+            documents=docs,
+            embedding=embeddings,
+            persist_directory="chroma_db"
+        )
+        vs.persist()
+    st.success("Vectorstore built successfully!")
 
 # --- Context retriever
 def make_context_fn(vs, k, use_reranker):
@@ -135,7 +96,7 @@ terms_prompt = PromptTemplate.from_template(
 )
 parser = StrOutputParser()
 
-# --- Tabs (always visible)
+# --- Tabs
 st.divider()
 st.markdown("Choose a mode and ask")
 
@@ -147,7 +108,7 @@ with tabs[0]:
     q = st.text_input("Your medical question (e.g., How is measles transmitted?)", key="qa")
     if st.button("Answer", key="qa_btn"):
         if vs is None:
-            st.warning("⚠️ Please ingest documents first.")
+            st.warning("⚠️ Please upload documents first.")
         elif q:
             with st.spinner("Thinking..."):
                 chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | qa_prompt | llm | parser)
@@ -160,7 +121,7 @@ with tabs[1]:
     topic = st.text_input("Topic or document theme to summarize (e.g., malaria overview)", key="sum")
     if st.button("Summarize", key="sum_btn"):
         if vs is None:
-            st.warning("⚠️ Please ingest documents first.")
+            st.warning("⚠️ Please upload documents first.")
         elif topic:
             with st.spinner("Summarizing..."):
                 chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | sum_prompt | llm | parser)
@@ -173,7 +134,7 @@ with tabs[2]:
     t = st.text_input("Glossary focus (e.g., terms related to tuberculosis)", key="gloss")
     if st.button("Generate Glossary", key="gloss_btn"):
         if vs is None:
-            st.warning("⚠️ Please ingest documents first.")
+            st.warning("⚠️ Please upload documents first.")
         else:
             query = t if t else "key medical terms"
             with st.spinner("Extracting terms..."):
