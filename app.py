@@ -107,8 +107,8 @@ if st.button("Ingest"):
     persist_directory="chroma_db"  
 )
 
-# Save vectors to disk
-vs.persist()
+    # Save vectors to disk
+     vs.persist()
 
         st.success("Index updated successfully!")
     else:
