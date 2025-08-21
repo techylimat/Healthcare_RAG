@@ -69,7 +69,7 @@ if uploaded_files:
 
         docs.extend(loader.load())
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
     docs = text_splitter.split_documents(docs)
 
 # --- LLM + Embeddings
@@ -77,7 +77,7 @@ llm = ChatOpenAI(model=model_name, api_key=openai_api_key, temperature=0)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
 
 # --- Build vectorstore with batching and retry
-def embed_in_batches(docs, batch_size=10, retries=3, delay=5):
+def embed_in_batches(docs, batch_size=5, retries=3, delay=5):
     all_docs = []
     for i in range(0, len(docs), batch_size):
         batch = docs[i:i + batch_size]
