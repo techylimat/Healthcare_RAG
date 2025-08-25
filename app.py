@@ -1,3 +1,4 @@
+%%writefile app.py
 import sys
 import pysqlite3
 sys.modules["sqlite3"] = pysqlite3
@@ -16,6 +17,7 @@ from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import chromadb
+from google.colab import userdata
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -56,21 +58,19 @@ if uploaded_files:
     docs = text_splitter.split_documents(docs)
 
 # --- HuggingFace LLM + Embeddings
-hf_token = st.secrets.get("HF_TOKEN", None)
+hf_token = userdata.get("HF_TOKEN")
 if not hf_token:
-    st.warning("⚠️ Please add your HuggingFace API token in Streamlit secrets.")
+    st.warning("⚠️ Please add your HuggingFace API token to Colab Secrets with the name 'HF_TOKEN'.")
     st.stop()
 
 llm = HuggingFaceHub(
     repo_id=model_name,
     huggingfacehub_api_token=hf_token,
-    task="text2text-generation",  
+    task="text2text-generation",
     model_kwargs={"max_length": 512}
 )
 
-
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 # --- Build vectorstore
