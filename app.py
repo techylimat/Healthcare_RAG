@@ -1,97 +1,51 @@
-import sys
-import pysqlite3
-sys.modules["sqlite3"] = pysqlite3
-
-import os
-import tempfile
 import streamlit as st
-from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.llms import HuggingFaceEndpoint  # ✅ changed
-from langchain.prompts import PromptTemplate
-from langchain.schema.runnable import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
+from langchain_huggingface import HuggingFaceEndpoint
+from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.retrievers import BM25Retriever  # ✅ added
-import chromadb
 
+# ---------------------
+# Sidebar settings
+# ---------------------
+st.sidebar.title("Settings")
 
-# --- Config
-st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
-st.title("🩺 Healthcare RAG Assistant")
-st.caption("Upload medical docs (PDF/DOCX/TXT), then ask questions, summarize, or get a glossary. Not medical advice.")
+top_k = st.sidebar.slider("Number of retrieved documents (k)", 1, 10, 5)
 
-# --- Sidebar
-st.sidebar.header("⚙️ Settings")
-model_name = st.sidebar.selectbox("Choose model", ["google/flan-t5-small", "google/flan-t5-base"])
-top_k = st.sidebar.slider("Number of chunks to retrieve", 2, 8, 4)
-
-# ✅ retriever selector
 retriever_option = st.sidebar.radio(
     "Choose retriever",
     ["Chroma (default)", "BM25 retriever", "LLM reranker"],
     index=0
 )
 
-# --- Upload & process documents
-uploaded_files = st.file_uploader(
-    "Upload PDF or DOCX files",
-    type=["pdf", "docx", "txt", "md"],
-    accept_multiple_files=True
-)
+# ---------------------
+# HuggingFace model setup
+# ---------------------
+hf_model_id = "mistralai/Mistral-7B-Instruct-v0.3"
+hf_api_key = st.secrets.get("HF_TOKEN")
 
-docs = []
-if uploaded_files:
-    for file in uploaded_files:
-        suffix = os.path.splitext(file.name)[-1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-            tmp_file.write(file.getbuffer())
-            tmp_path = tmp_file.name
-
-        if file.name.lower().endswith(".pdf"):
-            loader = PyPDFLoader(tmp_path)
-        elif file.name.lower().endswith(".docx"):
-            loader = Docx2txtLoader(tmp_path)
-        else:
-            loader = TextLoader(tmp_path)
-
-        docs.extend(loader.load())
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-    docs = text_splitter.split_documents(docs)
-
-# --- HuggingFace LLM + Embeddings
-hf_token = st.secrets.get("HF_TOKEN")
-if not hf_token:
-    st.warning("⚠️ Please add your HuggingFace API token in Streamlit secrets.")
+if not hf_api_key:
+    st.error("Please set your HuggingFace API token in Streamlit secrets.")
     st.stop()
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
-
-llm = HuggingFaceEndpoint(  # ✅ changed from HuggingFaceHub
-    repo_id=model_name,
-    huggingfacehub_api_token=hf_token,
-    max_new_tokens=512
+llm = HuggingFaceEndpoint(
+    repo_id=hf_model_id,
+    max_new_tokens=512,
+    temperature=0.1,
+    huggingfacehub_api_token=hf_api_key,
 )
 
+# ---------------------
+# Embeddings
+# ---------------------
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# --- Build vectorstore
-vs = None
-if docs:
-    with st.spinner("Building vectorstore..."):
-        vs = Chroma.from_documents(
-            documents=docs,
-            embedding=embeddings,
-            persist_directory="chroma_db"
-        )
-        vs.persist()
-    st.success("Vectorstore built successfully!")
-
-# --- Context retriever
+# ---------------------
+# Context function (retrievers)
+# ---------------------
 def make_context_fn(vs, k, retriever_option):
     if not vs:
         return None
@@ -105,68 +59,61 @@ def make_context_fn(vs, k, retriever_option):
     elif retriever_option == "LLM reranker":
         try:
             compressor = LLMChainExtractor.from_llm(llm)
-            return ContextualCompressionRetriever(base_compressor=compressor, base_retriever=retriever)
+            return ContextualCompressionRetriever(
+                base_compressor=compressor,
+                base_retriever=retriever
+            )
         except Exception as e:
             st.warning(f"⚠️ LLM reranker unavailable ({type(e).__name__}: {e}). Falling back to Chroma retriever.")
             return retriever
 
-    return retriever  # default Chroma
+    return retriever  # default: Chroma
 
 
-# --- Prompts
-qa_prompt = PromptTemplate.from_template(
-    "You are a medical assistant. Using the context below, answer:\n\n{context}\n\nQ: {question}\nA:"
-)
-sum_prompt = PromptTemplate.from_template(
-    "Summarize the following context into 5 bullet points:\n\n{context}\n\nTopic: {question}\nSummary:"
-)
-terms_prompt = PromptTemplate.from_template(
-    "Extract key medical terms and explain simply:\n\n{context}\n\nGlossary:"
-)
-parser = StrOutputParser()
+# ---------------------
+# Streamlit App
+# ---------------------
+st.title("📖 RAG with Chroma / BM25 / LLM Reranker")
 
-# --- Tabs
-st.divider()
-st.markdown("Choose a mode and ask")
+url = st.text_input("Enter a webpage URL to load knowledge:")
 
-tabs = st.tabs(["Q&A", "Summarize", "Glossary"])
-ctx_fn = make_context_fn(vs, k=top_k, retriever_option=retriever_option) if vs else None  # ✅ updated
+if url:
+    with st.spinner("Loading and indexing webpage..."):
+        try:
+            loader = WebBaseLoader(url)
+            data = loader.load()
 
-# --- Q&A tab
-with tabs[0]:
-    q = st.text_input("Your medical question (e.g., How is measles transmitted?)", key="qa")
-    if st.button("Answer", key="qa_btn"):
-        if vs is None:
-            st.warning("⚠️ Please upload documents first.")
-        elif q:
-            with st.spinner("Thinking..."):
-                chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | qa_prompt | llm | parser)
-                ans = chain.invoke(q)
-            st.markdown("#### Answer")
-            st.write(ans)
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            docs = text_splitter.split_documents(data)
 
-# --- Summarize tab
-with tabs[1]:
-    topic = st.text_input("Topic or document theme to summarize (e.g., malaria overview)", key="sum")
-    if st.button("Summarize", key="sum_btn"):
-        if vs is None:
-            st.warning("⚠️ Please upload documents first.")
-        elif topic:
-            with st.spinner("Summarizing..."):
-                chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | sum_prompt | llm | parser)
-                summary = chain.invoke(topic)
-            st.markdown("#### Summary (5 bullets)")
-            st.write(summary)
+            vs = Chroma.from_documents(docs, embeddings)
+            st.success("✅ Knowledge base created!")
+        except Exception as e:
+            st.error(f"Failed to load and index webpage: {e}")
+            vs = None
+else:
+    vs = None
 
-# --- Glossary tab
-with tabs[2]:
-    glossary_topic = st.text_input("Topic to extract glossary from (e.g., diabetes)", key="gloss")
-    if st.button("Extract Glossary", key="gloss_btn"):
-        if vs is None:
-            st.warning("⚠️ Please upload documents first.")
-        elif glossary_topic:
-            with st.spinner("Extracting glossary..."):
-                chain = ({"context": ctx_fn, "question": RunnablePassthrough()} | terms_prompt | llm | parser)
-                glossary = chain.invoke(glossary_topic)
-            st.markdown("#### Glossary")
-            st.write(glossary)
+ctx_fn = make_context_fn(vs, k=top_k, retriever_option=retriever_option) if vs else None
+
+query = st.text_input("Ask a question about the webpage:")
+
+if query and ctx_fn:
+    with st.spinner("Generating answer..."):
+        try:
+            relevant_docs = ctx_fn.get_relevant_documents(query)
+            context = "\n".join([doc.page_content for doc in relevant_docs])
+
+            prompt = f"Answer the following question using the provided context.\n\nContext:\n{context}\n\nQuestion: {query}\nAnswer:"
+            response = llm.invoke(prompt)
+
+            st.subheader("Answer")
+            st.write(response)
+
+            with st.expander("Retrieved Context"):
+                st.write(context)
+
+        except Exception as e:
+            st.error(f"Error during retrieval/answer generation: {e}")
+elif query:
+    st.warning("⚠️ Please load a webpage first.")
