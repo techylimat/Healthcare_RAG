@@ -16,7 +16,7 @@ from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import chromadb
-from google.colab import userdata
+
 
 # --- Config
 st.set_page_config(page_title="🩺 Exceptional Healthcare RAG", layout="wide")
@@ -57,9 +57,9 @@ if uploaded_files:
     docs = text_splitter.split_documents(docs)
 
 # --- HuggingFace LLM + Embeddings
-hf_token = userdata.get("HF_TOKEN")
+hf_token = st.secrets.get("HF_TOKEN")
 if not hf_token:
-    st.warning("⚠️ Please add your HuggingFace API token to Colab Secrets with the name 'HF_TOKEN'.")
+    st.warning("⚠️ Please add your HuggingFace API token in Streamlit secrets.")
     st.stop()
 
 llm = HuggingFaceHub(
