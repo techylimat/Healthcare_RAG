@@ -1,16 +1,12 @@
-pysqlite3-binary
 streamlit
 langchain
 langchain-community
-langchain-openai
-chromadb[duckdb]
-transformers
-sentence-transformers
-pypdf
-python-docx
-python-dotenv
-tiktoken
 langchain-huggingface
+langchain-chroma
+chromadb
+rank-bm25
+sentence-transformers
 torch
+
 
 
