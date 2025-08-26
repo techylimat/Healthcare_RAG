@@ -6,6 +6,8 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParse
+from langchain_community.retrievers.bm25 import BM25Retriever
+
 # -------------------------------
 # Streamlit UI
 # -------------------------------
