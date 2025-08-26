@@ -6,6 +6,19 @@ from langchain_community.retrievers import BM25Retriever
 from langchain.schema import BaseMessage  # for safe response handling
 
 # ---------------------
+# Sidebar settings (kept intact)
+# ---------------------
+st.sidebar.title("Settings")
+
+top_k = st.sidebar.slider("Number of retrieved documents (k)", 1, 10, 5)
+
+retriever_option = st.sidebar.radio(
+    "Choose retriever",
+    ["BM25 retriever"],  # Only BM25 remains
+    index=0
+)
+
+# ---------------------
 # HuggingFace model setup
 # ---------------------
 hf_model_id = "mistralai/Mistral-7B-Instruct-v0.3"
@@ -23,14 +36,9 @@ llm = HuggingFaceEndpoint(
 )
 
 # ---------------------
-# Fixed top_k
+# Streamlit App (kept name the same)
 # ---------------------
-top_k = 5
-
-# ---------------------
-# Streamlit App
-# ---------------------
-st.title("📖 RAG with BM25 Retriever")
+st.title("📖 RAG with Chroma / BM25 / LLM Reranker")
 
 url = st.text_input("Enter a webpage URL to load knowledge:")
 
@@ -43,7 +51,7 @@ if url:
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             docs = text_splitter.split_documents(data)
 
-            # Build BM25 retriever directly
+            # Always BM25 now
             retriever = BM25Retriever.from_documents(docs)
             retriever.k = top_k
 
