@@ -2,11 +2,9 @@ import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.llms import Ollama
 from langchain.prompts import ChatPromptTemplate
-from langchain.chains import create_stuff_documents_chain
-from langchain.chains.combine_documents import create_retrieval_chain
 from langchain_community.vectorstores import BM25Retriever
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
 # -------------------------------
@@ -56,14 +54,15 @@ Question:
 parser = StrOutputParser()
 
 # -------------------------------
-# Chain Fix (patched)
+# Chain
 # -------------------------------
-context = retriever  # BM25 retriever result
+def format_docs(docs):
+    return "\n\n".join(d.page_content for d in docs)
 
 chain = (
     {
-        "context": retriever,                  # will fetch docs
-        "question": RunnablePassthrough(),     # forwards user input
+        "context": retriever | format_docs,    
+        "question": RunnablePassthrough(),     
     }
     | qa_prompt
     | llm
