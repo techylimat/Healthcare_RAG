@@ -1,26 +1,9 @@
 import streamlit as st
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain.schema import BaseMessage  # for robust type check
-
-# ---------------------
-# Sidebar settings
-# ---------------------
-st.sidebar.title("Settings")
-
-top_k = st.sidebar.slider("Number of retrieved documents (k)", 1, 10, 5)
-
-retriever_option = st.sidebar.radio(
-    "Choose retriever",
-    ["Chroma (default)", "BM25 retriever", "LLM reranker"],
-    index=0
-)
+from langchain.schema import BaseMessage  # for safe response handling
 
 # ---------------------
 # HuggingFace model setup
@@ -40,44 +23,14 @@ llm = HuggingFaceEndpoint(
 )
 
 # ---------------------
-# Embeddings
+# Fixed top_k
 # ---------------------
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-# ---------------------
-# Context function (retrievers)
-# ---------------------
-def make_context_fn(vs, docs, k, retriever_option):
-    if not vs:
-        return None
-
-    retriever = vs.as_retriever(search_kwargs={"k": k})
-
-    if retriever_option == "BM25 retriever":
-        # Build BM25 directly from Document objects (not from vs.get())
-        if not docs:
-            return retriever
-        bm25 = BM25Retriever.from_documents(docs)
-        bm25.k = k
-        return bm25
-
-    elif retriever_option == "LLM reranker":
-        try:
-            compressor = LLMChainExtractor.from_llm(llm)
-            return ContextualCompressionRetriever(
-                base_compressor=compressor,
-                base_retriever=retriever
-            )
-        except Exception as e:
-            st.warning(f"⚠️ LLM reranker unavailable ({type(e).__name__}: {e}). Falling back to Chroma retriever.")
-            return retriever
-
-    return retriever  # default: Chroma
+top_k = 5
 
 # ---------------------
 # Streamlit App
 # ---------------------
-st.title("📖 RAG with Chroma / BM25 / LLM Reranker")
+st.title("📖 RAG with BM25 Retriever")
 
 url = st.text_input("Enter a webpage URL to load knowledge:")
 
@@ -90,27 +43,24 @@ if url:
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             docs = text_splitter.split_documents(data)
 
-            # Persist docs for BM25 use
-            st.session_state["docs"] = docs
+            # Build BM25 retriever directly
+            retriever = BM25Retriever.from_documents(docs)
+            retriever.k = top_k
 
-            vs = Chroma.from_documents(docs, embeddings)
-            st.success("✅ Knowledge base created!")
+            st.session_state["retriever"] = retriever
+            st.success("✅ Knowledge base created using BM25!")
         except Exception as e:
             st.error(f"Failed to load and index webpage: {e}")
-            vs = None
-            st.session_state["docs"] = []
+            st.session_state["retriever"] = None
 else:
-    vs = None
-    st.session_state["docs"] = []
-
-ctx_fn = make_context_fn(vs, st.session_state.get("docs", []), k=top_k, retriever_option=retriever_option) if vs else None
+    st.session_state["retriever"] = None
 
 query = st.text_input("Ask a question about the webpage:")
 
-if query and ctx_fn:
+if query and st.session_state.get("retriever"):
     with st.spinner("Generating answer..."):
         try:
-            relevant_docs = ctx_fn.get_relevant_documents(query) or []
+            relevant_docs = st.session_state["retriever"].get_relevant_documents(query) or []
             if not relevant_docs:
                 st.warning("No relevant documents found for this query.")
                 st.stop()
@@ -123,7 +73,7 @@ if query and ctx_fn:
             )
             raw_response = llm.invoke(prompt)
 
-            # ---- Normalize response to a plain string ----
+            # Normalize response to plain string
             if isinstance(raw_response, BaseMessage):
                 response_text = raw_response.content
             elif isinstance(raw_response, dict) and "generated_text" in raw_response:
