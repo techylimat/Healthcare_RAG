@@ -7,6 +7,7 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain.schema import BaseMessage  # for robust type check
 
 # ---------------------
 # Sidebar settings
@@ -46,14 +47,18 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 # ---------------------
 # Context function (retrievers)
 # ---------------------
-def make_context_fn(vs, k, retriever_option):
+def make_context_fn(vs, docs, k, retriever_option):
     if not vs:
         return None
 
     retriever = vs.as_retriever(search_kwargs={"k": k})
 
     if retriever_option == "BM25 retriever":
-        bm25 = BM25Retriever.from_documents(vs.get())
+        # Build BM25 directly from Document objects (not from vs.get())
+        if not docs:
+            return retriever
+        bm25 = BM25Retriever.from_documents(docs)
+        bm25.k = k
         return bm25
 
     elif retriever_option == "LLM reranker":
@@ -68,7 +73,6 @@ def make_context_fn(vs, k, retriever_option):
             return retriever
 
     return retriever  # default: Chroma
-
 
 # ---------------------
 # Streamlit App
@@ -86,29 +90,49 @@ if url:
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             docs = text_splitter.split_documents(data)
 
+            # Persist docs for BM25 use
+            st.session_state["docs"] = docs
+
             vs = Chroma.from_documents(docs, embeddings)
             st.success("✅ Knowledge base created!")
         except Exception as e:
             st.error(f"Failed to load and index webpage: {e}")
             vs = None
+            st.session_state["docs"] = []
 else:
     vs = None
+    st.session_state["docs"] = []
 
-ctx_fn = make_context_fn(vs, k=top_k, retriever_option=retriever_option) if vs else None
+ctx_fn = make_context_fn(vs, st.session_state.get("docs", []), k=top_k, retriever_option=retriever_option) if vs else None
 
 query = st.text_input("Ask a question about the webpage:")
 
 if query and ctx_fn:
     with st.spinner("Generating answer..."):
         try:
-            relevant_docs = ctx_fn.get_relevant_documents(query)
-            context = "\n".join([doc.page_content for doc in relevant_docs])
+            relevant_docs = ctx_fn.get_relevant_documents(query) or []
+            if not relevant_docs:
+                st.warning("No relevant documents found for this query.")
+                st.stop()
 
-            prompt = f"Answer the following question using the provided context.\n\nContext:\n{context}\n\nQuestion: {query}\nAnswer:"
-            response = llm.invoke(prompt)
+            context = "\n".join([doc.page_content for doc in relevant_docs if getattr(doc, "page_content", None)])
+
+            prompt = (
+                "Answer the following question using the provided context.\n\n"
+                f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+            )
+            raw_response = llm.invoke(prompt)
+
+            # ---- Normalize response to a plain string ----
+            if isinstance(raw_response, BaseMessage):
+                response_text = raw_response.content
+            elif isinstance(raw_response, dict) and "generated_text" in raw_response:
+                response_text = raw_response["generated_text"]
+            else:
+                response_text = str(raw_response)
 
             st.subheader("Answer")
-            st.write(response)
+            st.write(response_text)
 
             with st.expander("Retrieved Context"):
                 st.write(context)
