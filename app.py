@@ -2,11 +2,10 @@ import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.llms import Ollama
 from langchain.prompts import ChatPromptTemplate
-from langchain_community.vectorstores import BM25Retriever
+from langchain_community.retrievers import BM25Retriever 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-
+from langchain_core.output_parsers import StrOutputParse
 # -------------------------------
 # Streamlit UI
 # -------------------------------
