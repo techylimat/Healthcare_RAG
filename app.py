@@ -24,12 +24,16 @@ st.write("Upload your medical documents and ask questions.")
 # -------------------------------
 uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
 
-docs: List[Document] = []
+docs = []
 if uploaded_file is not None:
+    # Reset pointer before reading
+    uploaded_file.seek(0)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         tmp_file.write(uploaded_file.read())
+        tmp_file.flush()
         loader = PyPDFLoader(tmp_file.name)
         docs.extend(loader.load())
+
 
 # -------------------------------
 # Chunking
