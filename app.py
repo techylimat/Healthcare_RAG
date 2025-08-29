@@ -5,8 +5,8 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_community.retrievers import BM25Retriever 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParse
-from langchain_community.retrievers.bm25 import BM25Retriever
+from langchain_core.output_parsers import StrOutputParser
+import tempfile
 
 # -------------------------------
 # Streamlit UI
@@ -22,8 +22,10 @@ uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
 
 docs = []
 if uploaded_file is not None:
-    loader = PyPDFLoader(uploaded_file.name)
-    docs.extend(loader.load())
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        loader = PyPDFLoader(tmp_file.name)
+        docs.extend(loader.load())
 
 # -------------------------------
 # Text Splitter
