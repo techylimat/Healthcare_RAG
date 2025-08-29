@@ -11,6 +11,9 @@ from langchain_community.vectorstores import FAISS
 from typing import List, Dict
 from langchain.schema import Document
 import tempfile
+from langchain_community.llms import HuggingFaceHub
+
+
 
 # -------------------------------
 # Streamlit UI (UNCHANGED)
@@ -91,8 +94,11 @@ def hybrid_retrieve(query: str) -> List[Document]:
 # -------------------------------
 # LLM + Prompt
 # -------------------------------
-llm = Ollama(model="mistral")
-
+llm = HuggingFaceHub(
+    repo_id="meta-llama/Meta-Llama-3-8B-Instruct",  
+    huggingfacehub_api_token="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",
+    model_kwargs={"temperature":0.3, "max_new_tokens":512}
+)
 qa_prompt = ChatPromptTemplate.from_template("""
 You are a helpful medical assistant.
 Use ONLY the context to answer. If the answer is not in the context, say you don’t know.
