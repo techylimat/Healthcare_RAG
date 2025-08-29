@@ -1,10 +1,8 @@
-streamlit
-langchain
-langchain-community
-langchain-text-splitters
-langchain-huggingface
-rank-bm25
-pypdf
-
+streamlit>=1.34
+langchain>=0.2.10
+langchain-community>=0.2.10
+langchain-text-splitters>=0.2.2
+faiss-cpu>=1.8.0
+sentence-transformers>=3.0.1
 
 
