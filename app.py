@@ -2,8 +2,8 @@ import os
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain_community.llms import HuggingFaceHub
 
@@ -39,13 +39,13 @@ if uploaded_files:
     # Create embeddings
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-    # Store in FAISS
-    db = FAISS.from_documents(chunks, embeddings)
+    # Store in Chroma (instead of FAISS)
+    db = Chroma.from_documents(chunks, embeddings)
     retriever = db.as_retriever()
 
-    # HuggingFace LLM (replace with your model if needed)
+    # HuggingFace LLM
     llm = HuggingFaceHub(
-        repo_id="google/flan-t5-base",  # lightweight but good for Q&A
+        repo_id="google/flan-t5-base",
         model_kwargs={"temperature": 0.3, "max_length": 512}
     )
 
